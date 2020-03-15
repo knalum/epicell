@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>epicell</title>
+	<script type="text/javascript" src="js/zepto.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+	<h3>
+		epicell
+	</h3>
+	<div class="panel">
+		A simplified cellular automata simulator for modelling the dynamics of infectious disease.
+	</div>
+
+	<div class="panel">
+		<table>
+			<tr>
+				<td>
+					Cells
+				</td>
+				<td>
+					<span id="cells"></span>
+				</td>
+			</tr>
+
+			<tr>
+				<td class="susceptible">
+					Susceptible
+				</td>
+				<td class="susceptible">
+					<span id="susceptibleCells"></span>
+				</td>
+				<td class="infected">
+					Infected
+				</td>
+				<td class="infected">
+					<span id="infectedCells"></span>
+				</td>
+				<td class="recovered">
+					Recovered
+				</td>
+				<td class="recovered">
+					<span id="recoveredCells"></span>
+				</td>
+			</tr>
+
+			<tr>
+				<td>
+					Calc [ms]
+				</td>
+				<td>
+					<span id="calcTime"></span>
+				</td>
+				<td>
+					Draw [ms]
+				</td>
+				<td>
+					<span id="drawTime"></span>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<button id="reset" >Reset</button>
+	<button id="step" >Step</button>
+	<button id="start" >Start</button>
+	<button id="stop" >Stop</button>
+	<br/>
+	<br/>
+
+<canvas id="myCanvas" width="600" height="600" style="border: 1px solid black"></canvas>
+<script>
+	// Globals
+	const INTERVAL_MS = 50
+	const SZ_X = 10
+	const SZ_Y = 10
+
+	const GRID_X = 60
+	const GRID_Y = 60
+
+
+	const CSTATE = {
+		S:2,
+		I:1,
+		B:0
+	}
+	//-------
+
+
+
+
+	let app = {
+		canvas:undefined,
+		ctx:undefined,
+		grid:[],
+		isRunning:false,
+		timer:undefined,
+		init:function(){
+			this.canvas = document.getElementById("myCanvas");
+			this.ctx = this.canvas.getContext("2d");
+			this.grid = initGrid()
+		},
+		run:function(){
+			if( !this.canvas ) this.init()
+			
+			
+			const t1 = new Date().getTime()
+			calcGrid(this.ctx,this.grid)
+			const t2 = new Date().getTime()
+
+			const calcTime = t2-t1
+
+			drawGrid(this.ctx,this.grid)
+			const t3 = new Date().getTime()
+			const drawTime = t3-t2
+
+			
+			$("#drawTime").text(drawTime)
+			$("#calcTime").text(calcTime)
+		},
+		start:function(){
+			if( this.isRunning ){
+				return
+			}
+			var self = this
+			this.timer = setInterval( function(){
+				self.run()
+			},INTERVAL_MS)
+
+			this.isRunning = true
+		},
+		stop:function(){
+			if( !this.timer ){
+				return
+			}
+			clearInterval(this.timer)
+			this.isRunning = false
+		},
+		reset:function(){
+			console.log("Reset")
+			this.init()
+		}
+	}
+
+	app.run()
+
+	// Handlers
+	$("#reset").click(function(){
+		location.reload()
+	})
+	$("#step").click(function(){
+		app.run()
+	})
+	$("#start").click(function(){
+		app.start()
+	})
+	$("#stop").click(function(){
+		app.stop()
+	})
+	//-----
+
+
+	function calcGrid(context,grid){
+		let stats = {}
+		stats[CSTATE.S]=0
+		stats[CSTATE.I]=0
+		stats[CSTATE.R]=0
+
+		var sick = []
+
+		for(let i=0;i<GRID_X;++i){
+			for(let j=0;j<GRID_Y;++j){
+				if( grid[i][j] !== CSTATE.B ){
+					sick.push({
+						x:i,
+						y:j
+					})
+
+					stats[grid[i][j]]++
+				}
+			
+			}
+		}
+
+		
+		$("#susceptibleCells").text(stats[CSTATE.S])
+		$("#infectedCells").text(stats[CSTATE.I])
+		$("#recoveredCells").text(stats[CSTATE.R])
+		$("#cells").text(sick.length)
+
+		for(let i=0;i<sick.length;++i){
+			let pos = {}
+			const dir = Math.floor(Math.random()*4)
+			if( dir === 0 ) {pos.x = 0;pos.y=-1} 		// North
+			else if( dir === 1 ) {pos.x = 1;pos.y=0}	// East
+			else if( dir === 2 ) {pos.x = 0;pos.y=1}	// South
+			else if( dir === 3 ) {pos.x = -1;pos.y=0}	// West
+			else	console.error("Error dir: "+dir)
+			
+		
+			const newX = sick[i].x+pos.x
+			const newY = sick[i].y+pos.y
+
+			if( newX < 0 || newX >= GRID_X || newY < 0 || newY >= GRID_Y ){
+				// Out of bounds.
+				continue;
+			}
+
+			let recRand = Math.random()*1000
+			if( recRand >998 && grid[sick[i].x][sick[i].y] === CSTATE.I ){
+				grid[sick[i].x][sick[i].y] = CSTATE.R
+			}
+
+
+
+
+			if( grid[newX][newY] !== CSTATE.B ){
+				// New cell position is occupied. Do not move
+
+				if( grid[sick[i].x][sick[i].y] === CSTATE.I &&
+					grid[newX][newY] === CSTATE.S ){
+					// Infect other cell
+					let rand = Math.random()*10
+					if( rand >2 ){
+						grid[newX][newY] = CSTATE.I
+					}
+				}
+				
+				continue;
+			}
+
+			// Plain movement
+			
+			let oldCellType = grid[sick[i].x][sick[i].y]
+			grid[sick[i].x][sick[i].y] = 0
+			grid[newX][newY] = oldCellType
+			
+		}
+	}
+	
+
+	function drawGrid(context,grid){
+		context.clearRect(0, 0, 600, 600);
+
+		let cnt = 0
+		for(let i=0;i<GRID_X;++i){
+			for(let j=0;j<GRID_Y;++j){
+				if( grid[i][j] === CSTATE.I ) {
+					drawRed(i,j,context)
+				} else if( grid[i][j] == CSTATE.B ){
+					drawBlank(i,j,context)
+				} else if( grid[i][j] == CSTATE.S ){
+					drawGreen(i,j,context)
+				} else if( grid[i][j] == CSTATE.R ){
+					drawBlue(i,j,context)
+				}else{
+					console.log(grid[i][j])
+					console.error("Error at "+i+" "+j)
+				}
+				cnt++
+			}
+		}
+
+		
+	}
+
+	function drawRed(i,j,context){
+		context.fillStyle = "red";
+		context.fillRect(i*SZ_X, j*SZ_Y, SZ_X, SZ_Y);
+	}
+
+	function drawBlank(i,j,context){
+		context.fillStyle = "rgb(240,240,240)";
+		context.strokeRect(i*SZ_X, j*SZ_Y, SZ_X, SZ_Y);
+	}
+
+	function drawGreen(i,j,context){
+		context.fillStyle = "green";
+		context.fillRect(i*SZ_X, j*SZ_Y, SZ_X, SZ_Y);
+	}
+
+	function drawBlue(i,j,context){
+		context.fillStyle = "blue";
+		context.fillRect(i*SZ_X, j*SZ_Y, SZ_X, SZ_Y);
+	}
+
+	function initGrid(){
+		let grid = []
+		for(let i=0;i<GRID_X;++i){
+			let row=[]
+			for(let j=0;j<GRID_Y;++j){
+				
+				let rand = Math.random()*1000
+				if( rand > 995 ){
+					row.push(CSTATE.I)
+				}if( rand > 890 && rand < 995 ){
+					row.push(CSTATE.S)
+				}else{
+					row.push(CSTATE.B)
+				}
+				
+				row.push(0)
+
+			}
+			grid.push(row)
+
+		}
+		
+		return grid
+	}
+
+</script>
+
+<div class="footer">
+	epicell 2020 - knalum - contact
+</div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+html{
+	font-family: "Trebuchet MS";
+	font-size: 12px;
+}
+.footer {
+	font-size: 10px;
+  	position: fixed;
+  	left: 0;
+  	bottom: 5px;
+  	width: 100%;
+  	text-align: center;
+}
+.panel{
+	padding:5px;
+	margin-bottom:10px;
+	width: 800px;
+	border: 1px solid #F1EDC2;
+	background-color: #FFFFF2;
+}
+.susceptible{
+	color:green;
+}
+.infected{
+	color:red;
+}
+.recovered{
+	color:blue;
+}
