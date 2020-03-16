@@ -22,12 +22,12 @@
             <td>
                 <span id="cells"></span>
             </td>
-			<td>
-				Days
-			</td>
-			<td>
-				<span id="days"></span>
-			</td>
+            <td>
+                Days
+            </td>
+            <td>
+                <span id="days"></span>
+            </td>
         </tr>
 
         <tr>
@@ -35,19 +35,20 @@
                 Susceptible
             </td>
             <td class="susceptible">
-                <span id="susceptibleCells"></span>
+                <!--<span id="susceptibleCells"></span>-->
+                <input type="number" id="susceptibleCells" value="300"/>
             </td>
             <td class="infected">
                 Infected
             </td>
             <td class="infected">
-                <span id="infectedCells"></span>
+                <input type="number" id="infectedCells" value="300"/>
             </td>
             <td class="recovered">
                 Recovered
             </td>
             <td class="recovered">
-                <span id="recoveredCells"></span>
+                <input type="number" id="recoveredCells" value="0"/>
             </td>
         </tr>
 
@@ -66,14 +67,14 @@
             </td>
         </tr>
 
-		<tr>
-			<td>
-				Interval [ms]
-			</td>
-			<td>
-				<input type="number" id="interval" placeholder="sim interval" value="50"/>
-			</td>
-		</tr>
+        <tr>
+            <td>
+                Interval [ms]
+            </td>
+            <td>
+                <input type="number" id="interval" placeholder="sim interval" value="50"/>
+            </td>
+        </tr>
     </table>
 </div>
 
@@ -84,7 +85,7 @@
 <br/>
 <br/>
 
-<canvas id="myCanvas" width="600" height="600" style="border: 1px solid black"></canvas>
+<canvas id="myCanvas" width="1000" height="600" style="border: 1px solid black"></canvas>
 <script>
     // Globals
     const SZ_X = 10
@@ -93,13 +94,19 @@
     const GRID_X = 60
     const GRID_Y = 60
 
-	const RECOVERY_TIME = 14
+    const RECOVERY_TIME = 30
 
     const CSTATE = {
         S: 2,
         I: 1,
         B: 0,
         R: 3
+    }
+
+    const APP_STATE = {
+        STOPPED: 0,
+        RUNNING: 1,
+        PAUSED: 2
     }
     //-------
 
@@ -108,14 +115,28 @@
         canvas: undefined,
         ctx: undefined,
         grid: [],
-        isRunning: false,
+        state: APP_STATE.STOPPED,
         timer: undefined,
-		days:0,
+        days: 0,
+        setState: function (newState) {
+            this.state = newState
+            if (newState === APP_STATE.STOPPED) {
+                $("input").each(function () {
+                    $(this).prop("disabled", false)
+                })
+            } else {
+                $("input").each(function () {
+                    $(this).prop("disabled", true)
+                })
+            }
+        },
         init: function () {
             this.canvas = document.getElementById("myCanvas");
             this.ctx = this.canvas.getContext("2d");
-            this.grid = initGrid()
-			this.days=0
+            this.grid = initGrid2()
+            this.days = 0
+            this.setState(APP_STATE.STOPPED)
+            drawGrid(this.ctx, this.grid)
         },
         run: function () {
             if (!this.canvas) this.init()
@@ -135,13 +156,13 @@
             $("#drawTime").text(drawTime)
             $("#calcTime").text(calcTime)
 
-			this.days++
-			$("#days").text(this.days)
+            this.days++
+            $("#days").text(this.days)
         },
         start: function () {
-        	const INTERVAL_MS = $("#interval").val()
+            const INTERVAL_MS = $("#interval").val()
 
-            if (this.isRunning) {
+            if (this.state === APP_STATE.RUNNING) {
                 return
             }
             var self = this
@@ -149,21 +170,22 @@
                 self.run()
             }, INTERVAL_MS)
 
-            this.isRunning = true
+            this.setState(APP_STATE.RUNNING)
         },
         stop: function () {
             if (!this.timer) {
                 return
             }
             clearInterval(this.timer)
-            this.isRunning = false
+            this.setState(APP_STATE.PAUSED)
         },
         reset: function () {
             this.init()
         }
     }
 
-    app.run()
+    loadParams()
+    app.init()
 
     // Handlers
     $("#reset").click(function () {
@@ -181,6 +203,38 @@
 
     //-----
 
+    // Persist on blur
+    $("input").blur(function () {
+        var params = {}
+        $("input").each(function () {
+            const id = $(this).prop("id")
+            const val = $(this).val()
+            params[id] = val
+        })
+        localStorage.setItem("params", JSON.stringify(params))
+
+
+    })
+
+    $("input").on("keypress", function (e) {
+        if (e.which === 13) {
+            app.init()
+        }
+    })
+
+    function loadParams() {
+        let paramsStr = localStorage.getItem("params")
+
+        if (paramsStr) {
+            const params = JSON.parse(paramsStr)
+
+            $("input").each(function () {
+                const id = $(this).prop("id")
+                $(this).val(params[id])
+            })
+        }
+    }
+
 
     function calcGrid(context, grid) {
         let stats = {}
@@ -196,7 +250,7 @@
                     sick.push({
                         x: i,
                         y: j,
-						state:grid[i][j].state
+                        state: grid[i][j].state
                     })
 
                     stats[grid[i][j].state]++
@@ -206,9 +260,9 @@
         }
 
 
-        $("#susceptibleCells").text(stats[CSTATE.S])
-        $("#infectedCells").text(stats[CSTATE.I])
-        $("#recoveredCells").text(stats[CSTATE.R])
+        $("#susceptibleCells").val(stats[CSTATE.S])
+        $("#infectedCells").val(stats[CSTATE.I])
+        $("#recoveredCells").val(stats[CSTATE.R])
         $("#cells").text(sick.length)
 
         for (let i = 0; i < sick.length; ++i) {
@@ -217,55 +271,50 @@
             if (dir === 0) {
                 pos.x = 0;
                 pos.y = -1
-            }
-            else if (dir === 1) {
+            } else if (dir === 1) {
                 pos.x = 1;
                 pos.y = 0
-            }
-            else if (dir === 2) {
+            } else if (dir === 2) {
                 pos.x = 0;
                 pos.y = 1
-            }
-            else if (dir === 3) {
+            } else if (dir === 3) {
                 pos.x = -1;
                 pos.y = 0
-            }
-            else console.error("Error dir: " + dir)
+            } else console.error("Error dir: " + dir)
 
+
+            // Infected, increase number of infected days
+            if (sick[i].state === CSTATE.I) {
+                grid[sick[i].x][sick[i].y].days++
+
+                if (grid[sick[i].x][sick[i].y].days > RECOVERY_TIME) {
+                    grid[sick[i].x][sick[i].y].state = CSTATE.R
+                }
+            }
+
+
+            // Infection
+            if (sick[i].state === CSTATE.I) {
+                infect(sick[i], grid, 1, 0)
+                infect(sick[i], grid, -1, 0)
+                infect(sick[i], grid, 0, 1)
+                infect(sick[i], grid, 0, -1)
+
+                infect(sick[i], grid, 1, 1)
+                infect(sick[i], grid, 1, -1)
+                infect(sick[i], grid, -1, 1)
+                infect(sick[i], grid, -1, -1)
+
+            }
 
             const newX = sick[i].x + pos.x
             const newY = sick[i].y + pos.y
-
-			// Infected, increase number of infected days
-			if (sick[i].state === CSTATE.I ) {
-				grid[sick[i].x][sick[i].y].days++
-
-				if( grid[sick[i].x][sick[i].y].days > RECOVERY_TIME ){
-					grid[sick[i].x][sick[i].y].state = CSTATE.R
-				}
-			}
-
-			// Out of bounds.
+            // Out of bounds.
             if (newX < 0 || newX >= GRID_X || newY < 0 || newY >= GRID_Y) {
                 continue;
             }
-
-            // Infection
-			if ( sick[i].state === CSTATE.I ){
-				infect(sick[i],grid,1,0)
-				infect(sick[i],grid,-1,0)
-				infect(sick[i],grid,0,1)
-				infect(sick[i],grid,0,-1)
-
-				infect(sick[i],grid,1,1)
-				infect(sick[i],grid,1,-1)
-				infect(sick[i],grid,-1,1)
-				infect(sick[i],grid,-1,-1)
-
-			}
-
             // Movement
-            if (grid[newX][newY].state === CSTATE.B ) {
+            if (grid[newX][newY].state === CSTATE.B) {
 
                 let oldCell = grid[sick[i].x][sick[i].y]
                 grid[sick[i].x][sick[i].y] = {
@@ -281,20 +330,20 @@
         }
     }
 
-    function infect(sick,grid,dx,dy){
-    	let x = sick.x+dx
-    	let y = sick.y+dy
-		if( x>=0 && x< GRID_X && y>=0 && y<GRID_Y ){
-			if( grid[x][y].state === CSTATE.S ){
-				grid[x][y].state = CSTATE.I
-				grid[x][y].days = 0
-			}
-		}
-	}
+    function infect(sick, grid, dx, dy) {
+        let x = sick.x + dx
+        let y = sick.y + dy
+        if (x >= 0 && x < GRID_X && y >= 0 && y < GRID_Y) {
+            if (grid[x][y].state === CSTATE.S) {
+                grid[x][y].state = CSTATE.I
+                grid[x][y].days = 0
+            }
+        }
+    }
 
 
     function drawGrid(context, grid) {
-        context.clearRect(0, 0, 600, 600);
+        context.clearRect(0, 0, SZ_X * GRID_X, SZ_Y * GRID_Y);
 
         let cnt = 0
         for (let i = 0; i < GRID_X; ++i) {
@@ -337,36 +386,58 @@
         context.fillRect(i * SZ_X, j * SZ_Y, SZ_X, SZ_Y);
     }
 
-    function initGrid() {
+    function initGrid2() {
         let grid = []
+        let susc = $("#susceptibleCells").val()
+        let infec = $("#infectedCells").val()
+        let recov = $("#recoveredCells").val()
+
+        let xy = []
         for (let i = 0; i < GRID_X; ++i) {
             let row = []
             for (let j = 0; j < GRID_Y; ++j) {
+                row.push({
+                    state: CSTATE.B
+                })
 
-                let rand = Math.random() * 1000
-                if (rand > 995) {
-                    row.push({
-                        state: CSTATE.I,
-                        days: 0
-                    })
-                } else if (rand > 890 && rand < 995) {
-                    row.push({
-                        state: CSTATE.S,
-                        days: 0
-                    })
-                } else {
-                    row.push({
-                        state: CSTATE.B
-                    })
-                }
-
+                xy.push({
+                    x: i,
+                    y: j
+                })
             }
             grid.push(row)
+        }
 
+        xy = shuffle(xy)
+
+        placeCells(susc, CSTATE.S)
+        xy.splice(0, susc)
+        placeCells(infec, CSTATE.I)
+        xy.splice(0, infec)
+        placeCells(recov, CSTATE.R)
+
+        function placeCells(cellArr, state) {
+            for (var i = 0; i < cellArr; ++i) {
+                let placeX = xy[i].x
+                let placeY = xy[i].y
+                grid[placeX][placeY] = {
+                    state,
+                    days: 0
+                }
+            }
+        }
+
+        function shuffle(a) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
         }
 
         return grid
     }
+
 
 </script>
 
