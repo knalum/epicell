@@ -42,13 +42,28 @@
                 Infected
             </td>
             <td class="infected">
-                <input type="number" id="infectedCells" value="300"/>
+                <input type="number" id="infectedCells" value="5"/>
             </td>
             <td class="recovered">
                 Recovered
             </td>
             <td class="recovered">
                 <input type="number" id="recoveredCells" value="0"/>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Recovery time [days]
+            </td>
+            <td>
+                <input type="number" id="recoveryTime" value="14"/>
+            </td>
+            <td colspan="3">
+                <select id="recoveryMode">
+                    <option value="m0">Recover after N days</option>
+                    <option value="m1">Recover with an increasing probability after N days</option>
+                </select>
             </td>
         </tr>
 
@@ -94,8 +109,6 @@
     const GRID_X = 60
     const GRID_Y = 60
 
-    const RECOVERY_TIME = 30
-
     const CSTATE = {
         S: 2,
         I: 1,
@@ -121,11 +134,11 @@
         setState: function (newState) {
             this.state = newState
             if (newState === APP_STATE.STOPPED) {
-                $("input").each(function () {
+                $("input,select").each(function () {
                     $(this).prop("disabled", false)
                 })
             } else {
-                $("input").each(function () {
+                $("input,select").each(function () {
                     $(this).prop("disabled", true)
                 })
             }
@@ -205,21 +218,33 @@
 
     // Persist on blur
     $("input").blur(function () {
+        persist()
+    })
+
+    function persist() {
         var params = {}
         $("input").each(function () {
             const id = $(this).prop("id")
             const val = $(this).val()
             params[id] = val
         })
+
+        // zepto doesn't support selected...
+        var sel = document.getElementById("recoveryMode");
+        let mode = sel.options[sel.selectedIndex].value;
+        params["recoveryMode"] = mode
+
         localStorage.setItem("params", JSON.stringify(params))
-
-
-    })
+    }
 
     $("input").on("keypress", function (e) {
         if (e.which === 13) {
             app.init()
         }
+    })
+
+    $("select").change(function () {
+        persist()
     })
 
     function loadParams() {
@@ -232,6 +257,11 @@
                 const id = $(this).prop("id")
                 $(this).val(params[id])
             })
+
+            let mode = params["recoveryMode"]
+            if (mode) {
+                $("select").val(mode);
+            }
         }
     }
 
@@ -287,8 +317,22 @@
             if (sick[i].state === CSTATE.I) {
                 grid[sick[i].x][sick[i].y].days++
 
-                if (grid[sick[i].x][sick[i].y].days > RECOVERY_TIME) {
-                    grid[sick[i].x][sick[i].y].state = CSTATE.R
+                // TODO: input recover mode
+                const recoverMode = 1
+
+                let days = grid[sick[i].x][sick[i].y].days
+                if (recoverMode === 0) {
+                    // Recover after N days
+                    if (days > $("#recoveryTime").val()) {
+                        grid[sick[i].x][sick[i].y].state = CSTATE.R
+                    }
+                } else if (recoverMode === 1) {
+                    // Recover with an increasing probability after N days
+                    var rnd = Math.random() * days
+                    if (rnd > $("#recoveryTime").val()) {
+                        grid[sick[i].x][sick[i].y].state = CSTATE.R
+                    }
+
                 }
             }
 
