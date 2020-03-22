@@ -50,6 +50,12 @@
             <td class="recovered">
                 <input type="number" id="recoveredCells" value="0"/>
             </td>
+            <td class="lost">
+                Lost
+            </td>
+            <td class="recovered">
+                <input type="number" id="lostCells" value="0" disabled/>
+            </td>
         </tr>
 
         <tr>
@@ -71,7 +77,13 @@
                 Death rate [%]
             </td>
             <td>
-                <input type="number" id="deatRate" value="0.1">
+                <input type="number" id="deathRate" value="0.1"/>
+            </td>
+            <td>
+                From day
+            </td>
+            <td>
+                <input type="number" id="daysBeforeLost" value="7"/>
             </td>
         </tr>
 
@@ -311,10 +323,11 @@
                 grid[sick[i].x][sick[i].y].days++
             }
 
-            let nextState = Math.floor(Math.random() * 2);
-            if (nextState === 0) infectToRecover(sick[i], grid);
-            else if (nextState === 1) susceptibleToInfected(sick[i], grid);
-            else console.error("Next state error: ", nextState)
+            let didHappen = infectToDead(sick[i], grid)
+            if (didHappen) continue;
+
+            infectToRecover(sick[i], grid)
+            susceptibleToInfected(sick[i], grid)
 
             // Movement
             const newX = sick[i].x + pos.x
@@ -339,6 +352,25 @@
         }
     }
 
+    function infectToDead(sick, grid) {
+        if (sick.state === CSTATE.I) {
+            let days = grid[sick.x][sick.y].days
+            const deathRate = $("#deathRate").val()
+            const daysBeforeLost = $("#daysBeforeLost").val()
+
+            let rnd = Math.random() * 100 // [0,100]
+            let isWithin = rnd < deathRate
+            if (days > daysBeforeLost && isWithin === true) {
+                grid[sick.x][sick.y] = {state: CSTATE.B}
+                let curr = $("#lostCells").val()
+                curr++
+                $("#lostCells").val(curr)
+                return true
+            }
+        }
+        return false
+    }
+
     function susceptibleToInfected(sick, grid) {
         // Susceptible --> Infected
         if (sick.state === CSTATE.I) {
@@ -351,7 +383,10 @@
             infect(sick, grid, 1, -1)
             infect(sick, grid, -1, 1)
             infect(sick, grid, -1, -1)
+
+            return true
         }
+        return false
     }
 
     function infectToRecover(sick, grid) {
@@ -363,16 +398,19 @@
                 // Recover after N days
                 if (days > $("#recoveryTime").val()) {
                     grid[sick.x][sick.y].state = CSTATE.R
+                    return true
                 }
             } else if (recoverMode === 1) {
                 // Recover with an increasing probability after N days
                 var rnd = Math.random() * days
                 if (rnd > $("#recoveryTime").val()) {
                     grid[sick.x][sick.y].state = CSTATE.R
+                    return true
                 }
 
             }
         }
+        return false
     }
 
     function calcPos() {
