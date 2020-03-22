@@ -66,6 +66,14 @@
                 </select>
             </td>
         </tr>
+        <tr>
+            <td>
+                Death rate [%]
+            </td>
+            <td>
+                <input type="number" id="deatRate" value="0.1">
+            </td>
+        </tr>
 
         <tr>
             <td>
@@ -296,68 +304,25 @@
         $("#cells").text(sick.length)
 
         for (let i = 0; i < sick.length; ++i) {
-            let pos = {}
-            const dir = Math.floor(Math.random() * 4)
-            if (dir === 0) {
-                pos.x = 0;
-                pos.y = -1
-            } else if (dir === 1) {
-                pos.x = 1;
-                pos.y = 0
-            } else if (dir === 2) {
-                pos.x = 0;
-                pos.y = 1
-            } else if (dir === 3) {
-                pos.x = -1;
-                pos.y = 0
-            } else console.error("Error dir: " + dir)
+            let pos = calcPos()
 
-
-            // Infected, increase number of infected days
+            // Increase number of days for infected
             if (sick[i].state === CSTATE.I) {
                 grid[sick[i].x][sick[i].y].days++
-
-                // TODO: input recover mode
-                const recoverMode = 1
-
-                let days = grid[sick[i].x][sick[i].y].days
-                if (recoverMode === 0) {
-                    // Recover after N days
-                    if (days > $("#recoveryTime").val()) {
-                        grid[sick[i].x][sick[i].y].state = CSTATE.R
-                    }
-                } else if (recoverMode === 1) {
-                    // Recover with an increasing probability after N days
-                    var rnd = Math.random() * days
-                    if (rnd > $("#recoveryTime").val()) {
-                        grid[sick[i].x][sick[i].y].state = CSTATE.R
-                    }
-
-                }
             }
 
+            let nextState = Math.floor(Math.random() * 2);
+            if (nextState === 0) infectToRecover(sick[i], grid);
+            else if (nextState === 1) susceptibleToInfected(sick[i], grid);
+            else console.error("Next state error: ", nextState)
 
-            // Infection
-            if (sick[i].state === CSTATE.I) {
-                infect(sick[i], grid, 1, 0)
-                infect(sick[i], grid, -1, 0)
-                infect(sick[i], grid, 0, 1)
-                infect(sick[i], grid, 0, -1)
-
-                infect(sick[i], grid, 1, 1)
-                infect(sick[i], grid, 1, -1)
-                infect(sick[i], grid, -1, 1)
-                infect(sick[i], grid, -1, -1)
-
-            }
-
+            // Movement
             const newX = sick[i].x + pos.x
             const newY = sick[i].y + pos.y
             // Out of bounds.
             if (newX < 0 || newX >= GRID_X || newY < 0 || newY >= GRID_Y) {
                 continue;
             }
-            // Movement
             if (grid[newX][newY].state === CSTATE.B) {
 
                 let oldCell = grid[sick[i].x][sick[i].y]
@@ -372,6 +337,61 @@
             }
 
         }
+    }
+
+    function susceptibleToInfected(sick, grid) {
+        // Susceptible --> Infected
+        if (sick.state === CSTATE.I) {
+            infect(sick, grid, 1, 0)
+            infect(sick, grid, -1, 0)
+            infect(sick, grid, 0, 1)
+            infect(sick, grid, 0, -1)
+
+            infect(sick, grid, 1, 1)
+            infect(sick, grid, 1, -1)
+            infect(sick, grid, -1, 1)
+            infect(sick, grid, -1, -1)
+        }
+    }
+
+    function infectToRecover(sick, grid) {
+        // Infected --> Recover
+        if (sick.state === CSTATE.I) {
+            const recoverMode = 1
+            let days = grid[sick.x][sick.y].days
+            if (recoverMode === 0) {
+                // Recover after N days
+                if (days > $("#recoveryTime").val()) {
+                    grid[sick.x][sick.y].state = CSTATE.R
+                }
+            } else if (recoverMode === 1) {
+                // Recover with an increasing probability after N days
+                var rnd = Math.random() * days
+                if (rnd > $("#recoveryTime").val()) {
+                    grid[sick.x][sick.y].state = CSTATE.R
+                }
+
+            }
+        }
+    }
+
+    function calcPos() {
+        let pos = {}
+        const dir = Math.floor(Math.random() * 4)
+        if (dir === 0) {
+            pos.x = 0;
+            pos.y = -1
+        } else if (dir === 1) {
+            pos.x = 1;
+            pos.y = 0
+        } else if (dir === 2) {
+            pos.x = 0;
+            pos.y = 1
+        } else if (dir === 3) {
+            pos.x = -1;
+            pos.y = 0
+        } else console.error("Error dir: " + dir)
+        return pos
     }
 
     function infect(sick, grid, dx, dy) {
