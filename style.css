@@ -38,3 +38,12 @@ html{
 #info{
 	color: mediumblue;
 }
+button{
+	width:100px;
+}
+.runBtn{
+	background-color: lightgreen;
+}
+.pauseBtn{
+	background-color: orange;
+}

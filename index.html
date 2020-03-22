@@ -8,7 +8,11 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-161595892-1"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+
         gtag('js', new Date());
         gtag('config', 'UA-161595892-1');
     </script>
@@ -62,7 +66,7 @@
                 Lost
             </td>
             <td class="recovered">
-                <span class="lost" id="lostCells" ></span>
+                <span class="lost" id="lostCells"></span>
             </td>
         </tr>
 
@@ -146,10 +150,9 @@
     </table>
 </div>
 
-<button id="reset">Reset</button>
+<button id="startStop" class="run">Run</button>
 <button id="step">Step</button>
-<button id="start">Start</button>
-<button id="stop">Stop</button>
+<button id="reset">Reset</button>
 <br/>
 <br/>
 
@@ -186,7 +189,10 @@
         days: 0,
         setState: function (newState) {
             this.state = newState
-            if (newState === APP_STATE.STOPPED) {
+            if (newState === APP_STATE.STOPPED || newState === APP_STATE.PAUSED) {
+                $("#startStop").text("Run")
+                $("#startStop").prop("class", "runBtn")
+
                 $("input,select").each(function () {
                     $(this).prop("disabled", false)
                 })
@@ -194,6 +200,8 @@
                 $("input,select").each(function () {
                     $(this).prop("disabled", true)
                 })
+                $("#startStop").text("Pause")
+                $("#startStop").prop("class", "pauseBtn")
             }
         },
         init: function () {
@@ -240,6 +248,7 @@
             }, INTERVAL_MS)
 
             this.setState(APP_STATE.RUNNING)
+            $("#startStop").text("Pause")
         },
         stop: function () {
             if (!this.timer) {
@@ -249,11 +258,14 @@
             this.setState(APP_STATE.PAUSED)
         },
         reset: function () {
+            loadParams()
             this.init()
+            clearInterval(this.timer)
+            this.setState(APP_STATE.STOPPED)
         },
-        checkEquilib: function(){
+        checkEquilib: function () {
             let inf = parseInt($("#infectedCells").val())
-            if( inf === 0 ){
+            if (inf === 0) {
                 $("#info").text("Steady-state reached")
             }
         }
@@ -264,16 +276,17 @@
 
     // Handlers
     $("#reset").click(function () {
-        location.reload()
+        app.reset()
     })
     $("#step").click(function () {
         app.run()
     })
-    $("#start").click(function () {
-        app.start()
-    })
-    $("#stop").click(function () {
-        app.stop()
+    $("#startStop").click(function () {
+        if (app.state === APP_STATE.STOPPED || app.state === APP_STATE.PAUSED) {
+            app.start()
+        } else {
+            app.stop()
+        }
     })
 
     //-----
@@ -373,7 +386,7 @@
             susceptibleToInfected(sick[i], grid)
 
             // Movement
-            if( sick[i].move === false ){
+            if (sick[i].move === false) {
                 continue;
             }
             const newX = sick[i].x + pos.x
@@ -559,14 +572,14 @@
 
         xy = shuffle(xy)
 
-        var susceptableNotMovable = susc*($("#cellsStandingStill").val()/100)
-        placeCells(susc, CSTATE.S,susceptableNotMovable)
+        var susceptableNotMovable = susc * ($("#cellsStandingStill").val() / 100)
+        placeCells(susc, CSTATE.S, susceptableNotMovable)
         xy.splice(0, susc)
-        placeCells(infec, CSTATE.I,0)
+        placeCells(infec, CSTATE.I, 0)
         xy.splice(0, infec)
-        placeCells(recov, CSTATE.R,0)
+        placeCells(recov, CSTATE.R, 0)
 
-        function placeCells(cellArr, state,notMovableCells) {
+        function placeCells(cellArr, state, notMovableCells) {
             let notMovableCount = notMovableCells
             for (var i = 0; i < cellArr; ++i) {
                 let placeX = xy[i].x
@@ -576,7 +589,7 @@
                 grid[placeX][placeY] = {
                     state,
                     days: 0,
-                    move:notMovableCount <= 0
+                    move: notMovableCount <= 0
                 }
                 notMovableCount--
             }
