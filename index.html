@@ -13,7 +13,7 @@
     A simplified cellular automata simulator for modelling the dynamics of infectious disease.
 </div>
 
-<div class="panel">
+<div class="panel paramsPanel">
     <table>
         <tr>
             <td>
@@ -54,7 +54,7 @@
                 Lost
             </td>
             <td class="recovered">
-                <input type="number" id="lostCells" value="0" disabled/>
+                <span class="lost" id="lostCells" ></span>
             </td>
         </tr>
 
@@ -87,6 +87,39 @@
             </td>
         </tr>
 
+
+        <tr>
+            <td>
+                Non-moving susceptible cells [%]
+            </td>
+            <td>
+                <input type="number" id="cellsStandingStill" value="0"/>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <b>Status</b>
+            </td>
+            <td colspan="7">
+                <span id="info"></span>
+            </td>
+        </tr>
+
+    </table>
+</div>
+
+<div class="panel debugPanel">
+    <table>
+        <tr>
+            <td>
+                Step time [ms]
+            </td>
+            <td>
+                <input type="number" id="interval" placeholder="sim interval" value="50"/>
+            </td>
+        </tr>
+
         <tr>
             <td>
                 Calc [ms]
@@ -102,14 +135,6 @@
             </td>
         </tr>
 
-        <tr>
-            <td>
-                Interval [ms]
-            </td>
-            <td>
-                <input type="number" id="interval" placeholder="sim interval" value="50"/>
-            </td>
-        </tr>
     </table>
 </div>
 
@@ -170,9 +195,11 @@
             this.days = 0
             this.setState(APP_STATE.STOPPED)
             drawGrid(this.ctx, this.grid)
+            $("#info").text("Initialized")
         },
         run: function () {
             if (!this.canvas) this.init()
+            $("#info").text("Running...")
 
 
             const t1 = new Date().getTime()
@@ -191,6 +218,7 @@
 
             this.days++
             $("#days").text(this.days)
+            this.checkEquilib()
         },
         start: function () {
             const INTERVAL_MS = $("#interval").val()
@@ -214,6 +242,12 @@
         },
         reset: function () {
             this.init()
+        },
+        checkEquilib: function(){
+            let inf = parseInt($("#infectedCells").val())
+            if( inf === 0 ){
+                $("#info").text("Steady-state reached")
+            }
         }
     }
 
@@ -300,7 +334,8 @@
                     sick.push({
                         x: i,
                         y: j,
-                        state: grid[i][j].state
+                        state: grid[i][j].state,
+                        move: grid[i][j].move
                     })
 
                     stats[grid[i][j].state]++
@@ -330,6 +365,9 @@
             susceptibleToInfected(sick[i], grid)
 
             // Movement
+            if( sick[i].move === false ){
+                continue;
+            }
             const newX = sick[i].x + pos.x
             const newY = sick[i].y + pos.y
             // Out of bounds.
@@ -362,9 +400,9 @@
             let isWithin = rnd < deathRate
             if (days > daysBeforeLost && isWithin === true) {
                 grid[sick.x][sick.y] = {state: CSTATE.B}
-                let curr = $("#lostCells").val()
+                let curr = $("#lostCells").text()
                 curr++
-                $("#lostCells").val(curr)
+                $("#lostCells").text(curr)
                 return true
             }
         }
@@ -428,7 +466,7 @@
         } else if (dir === 3) {
             pos.x = -1;
             pos.y = 0
-        } else console.error("Error dir: " + dir)
+        } else consoleerror("Error dir: " + dir)
         return pos
     }
 
@@ -512,20 +550,26 @@
 
         xy = shuffle(xy)
 
-        placeCells(susc, CSTATE.S)
+        var susceptableNotMovable = susc*($("#cellsStandingStill").val()/100)
+        placeCells(susc, CSTATE.S,susceptableNotMovable)
         xy.splice(0, susc)
-        placeCells(infec, CSTATE.I)
+        placeCells(infec, CSTATE.I,0)
         xy.splice(0, infec)
-        placeCells(recov, CSTATE.R)
+        placeCells(recov, CSTATE.R,0)
 
-        function placeCells(cellArr, state) {
+        function placeCells(cellArr, state,notMovableCells) {
+            let notMovableCount = notMovableCells
             for (var i = 0; i < cellArr; ++i) {
                 let placeX = xy[i].x
                 let placeY = xy[i].y
+
+
                 grid[placeX][placeY] = {
                     state,
-                    days: 0
+                    days: 0,
+                    move:notMovableCount <= 0
                 }
+                notMovableCount--
             }
         }
 

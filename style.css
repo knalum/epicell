@@ -13,9 +13,15 @@ html{
 .panel{
 	padding:5px;
 	margin-bottom:10px;
-	width: 800px;
+	width: 90%;
+}
+.paramsPanel{
 	border: 1px solid #F1EDC2;
 	background-color: #FFFFF2;
+}
+.debugPanel{
+	border: 1px solid #F1EDC2;
+	background-color: #F0FFFF;
 }
 .susceptible{
 	color:green;
@@ -28,4 +34,7 @@ html{
 }
 .lost{
 	color: purple;
+}
+#info{
+	color: mediumblue;
 }
