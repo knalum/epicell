@@ -272,6 +272,9 @@
         }
     }
 
+    if( !localStorage.getItem("params") ){
+        persist()
+    }
     loadParams()
     app.init()
 
